@@ -35,15 +35,19 @@
 #define DELAY_MAIN 1000
 #define DELTA_IQ 2000
 
-#define ADC_INTERNAL_V 0.002502f
-#define ADC_INTERNAL_MV 2.502f
+// Reference voltages (fine tuned):
+//	measured using AREF when the shield is in place and 
+//	the Arduino is powered by external power with vehicle
+
+#define ADC_INTERNAL_V 	0.002483f	// was 0.002502f
+#define ADC_INTERNAL_MV 2.483f		// was 2.502f
 #define ADC_DEFAULT_V 0.004887f
 #define ADC_DEFAULT_MV 4.887f
 
-#define BAT_R1 22000.0f
-#define BAT_R2 1800.0f
+#define BAT_R1 24000.0f
+#define BAT_R2 2200.0f
 
-#define LM35_MVC 10.0f
+#define LM35_MVC 10.0f	
 
 #define BMP085_ADDRESS 0x77		// I2C address
 #define BMP085_OSS 0 			// Oversampling Setting
@@ -124,6 +128,9 @@ void setup() {
 	analogReference(INTERNAL);
 	delay(5);
 
+	// enable watchdog
+	wdt_enable(WDTO_8S);
+
 	// bmp085 init
 	Wire.begin();
 	bmp085Calibration();			// read data from BMP085 registers
@@ -131,9 +138,6 @@ void setup() {
 
 	// ready to go
 	digitalWrite(LED_PIN, HIGH);
-
-	// enable watchdog
-	wdt_enable(WDTO_8S);
 }
 
 // the loop routine runs over and over again forever:
