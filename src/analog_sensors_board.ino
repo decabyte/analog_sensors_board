@@ -70,8 +70,8 @@
 //  [8]: http://forum.arduino.cc/index.php?topic=128717.0
 //  [9]: http://www.nongnu.org/avr-libc/user-manual/group__avr__watchdog.html
 
-const int ACS_ZERO = (int) 2500 / ADC_INTERNAL_MV;	// ADC reading for 2.5V (~ 1007)
-const float ACS_CONV = ADC_INTERNAL_MV / ACS714_MVA	// Amps per ADC level
+const int ACS_ZERO = (int) 2500 / ADC_INTERNAL_MV;		// ADC reading for 2.5V (~ 1007)
+const float ACS714_CONV = ADC_INTERNAL_MV / ACS714_MVA;	// Amps per ADC level
 const float BAT_RK = (BAT_R1 + BAT_R2) / BAT_R2;
 
 unsigned long time_iq;
