@@ -39,19 +39,20 @@
 //	measured using AREF when the shield is in place and 
 //	the Arduino is powered by external power with vehicle
 
-#define ADC_INTERNAL_V 	0.002483f	// was 0.002502f
-#define ADC_INTERNAL_MV 2.483f		// was 2.502f
-#define ADC_DEFAULT_V 0.004887f
-#define ADC_DEFAULT_MV 4.887f
+#define ADC_INTERNAL_V 	0.002483f	// manual calibration (was 0.002502f)
+#define ADC_INTERNAL_MV 2.483f		// manual calibration (was 2.502f)
+#define ADC_DEFAULT_V 0.004887f		// uncalibrated
+#define ADC_DEFAULT_MV 4.887f		// uncalibrated
 
-#define BAT_R1 24000.0f
-#define BAT_R2 2200.0f
+#define BAT_R1 24000.0f 		// R1 (ohm)
+#define BAT_R2 2200.0f 			// R2 (ohm)
 
-#define LM35_MVC 10.0f	
+#define LM35_MVC 10.0f			// mV/C
+#define ACS714_MVA 185.0f 		// mv/A
 
 #define BMP085_ADDRESS 0x77		// I2C address
 #define BMP085_OSS 0 			// Oversampling Setting
-#define BMP_MAX 1000 			// endless loop protection
+#define BMP_MAX 1000 			// Loop protection (number of loops)
 
 // ** LM35 Analog Temperature Sensor
 // 	[1]: http://learn.adafruit.com/tmp36-temperature-sensor
@@ -69,6 +70,8 @@
 //  [8]: http://forum.arduino.cc/index.php?topic=128717.0
 //  [9]: http://www.nongnu.org/avr-libc/user-manual/group__avr__watchdog.html
 
+const int ACS_ZERO = (int) 2500 / ADC_INTERNAL_MV;	// ADC reading for 2.5V (~ 1007)
+const float ACS_CONV = ADC_INTERNAL_MV / ACS714_MVA	// Amps per ADC level
 const float BAT_RK = (BAT_R1 + BAT_R2) / BAT_R2;
 
 unsigned long time_iq;
@@ -105,6 +108,13 @@ int b1, b2, mb, mc, md;
 // bmp085GetPressure(...) so bmp085GetTemperature(...) must be called before
 // bmp085GetPressure(...) to work correctly.
 long b5;
+
+
+// ACS714 current sensor 
+//	working in reverse current flow to keep output signal within 0-2.5V range
+//	2.5V output is the steady 0A initial reading
+float acs0;
+int raw_acs0;
 
 
 // the setup routine runs once when you press reset:
@@ -146,6 +156,17 @@ void loop() {
 	// start acquisition (with double readings to avoid interferences [1])
 	digitalWrite(LED_PIN, HIGH);
 
+	// current sensor
+	raw_acs0 = analogRead(A11);		// J5 (pin 2)
+	raw_acs0 = analogRead(A11);		// J5 (pin 2)
+
+	// calculate output is Amps
+	acs0 = (float) (ACS_ZERO - raw_acs0) * ACS714_CONV;
+
+	// send current report
+	report_current();
+
+
 	// acquisition loop delta
 	delta = millis() - time_iq;
 
@@ -185,14 +206,14 @@ void loop() {
 		raw_tm2 = analogRead(A8);		// J6 (pin 2)
 		raw_tm2 = analogRead(A8);		// J6 (pin 2)
 
-		raw_tm3 = analogRead(A11);		// J5 (pin 2)
-		raw_tm3 = analogRead(A11);		// J5 (pin 2)
+		//raw_tm3 = analogRead(A11);		// J5 (pin 2)
+		//raw_tm3 = analogRead(A11);		// J5 (pin 2)
 
 		// lm35 temperature conversion
 		tm0 = (float(raw_tm0) * ADC_INTERNAL_MV) / LM35_MVC;
 		tm1 = (float(raw_tm1) * ADC_INTERNAL_MV) / LM35_MVC;
 		tm2 = (float(raw_tm2) * ADC_INTERNAL_MV) / LM35_MVC;
-		tm3 = (float(raw_tm3) * ADC_INTERNAL_MV) / LM35_MVC;
+		//tm3 = (float(raw_tm3) * ADC_INTERNAL_MV) / LM35_MVC;
 
 		// send temperature report
 		report_temperature();
@@ -221,7 +242,6 @@ void loop() {
 		// send humidity report
 		report_humidity();
 
-
 		// send timestamp
 		Serial.print("$TIME,");
 		Serial.println(time_iq, DEC);
@@ -241,6 +261,13 @@ void loop() {
 
 	// reset watchdog
 	wdt_reset();
+}
+
+void report_current() {
+	Serial.print("$ACS,");
+	Serial.print(acs0, 4);
+	Serial.print(',');
+	Serial.println(raw_acs0, DEC);
 }
 
 void report_battery() {
