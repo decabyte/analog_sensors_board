@@ -26,34 +26,6 @@
 	SOFTWARE.
 */
 
-#include <avr/wdt.h>
-#include <Wire.h>
-
-#define LED_PIN 13
-
-#define DELAY_SETUP 250
-#define DELAY_MAIN 1000
-#define DELTA_IQ 2000
-
-// Reference voltages (fine tuned):
-//	measured using AREF when the shield is in place and 
-//	the Arduino is powered by external power with vehicle
-
-#define ADC_INTERNAL_V 	0.002483f	// manual calibration (was 0.002502f)
-#define ADC_INTERNAL_MV 2.483f		// manual calibration (was 2.502f)
-#define ADC_DEFAULT_V 0.004887f		// uncalibrated
-#define ADC_DEFAULT_MV 4.887f		// uncalibrated
-
-#define BAT_R1 24000.0f 		// R1 (ohm)
-#define BAT_R2 2200.0f 			// R2 (ohm)
-
-#define LM35_MVC 10.0f			// mV/C
-#define ACS714_MVA 185.0f 		// mv/A
-
-#define BMP085_ADDRESS 0x77		// I2C address
-#define BMP085_OSS 0 			// Oversampling Setting
-#define BMP_MAX 1000 			// Loop protection (number of loops)
-
 // ** LM35 Analog Temperature Sensor
 // 	[1]: http://learn.adafruit.com/tmp36-temperature-sensor
 //
@@ -70,9 +42,43 @@
 //  [8]: http://forum.arduino.cc/index.php?topic=128717.0
 //  [9]: http://www.nongnu.org/avr-libc/user-manual/group__avr__watchdog.html
 
-const int ACS_ZERO = (int) 2500 / ADC_INTERNAL_MV;		// ADC reading for 2.5V (~ 1007)
-const float ACS714_CONV = ADC_INTERNAL_MV / ACS714_MVA;	// Amps per ADC level
+#include <avr/wdt.h>
+#include <Wire.h>
+
+#define DELAY_SETUP 250         // setup flashing delay
+#define DELAY_FAST 500 			// fast acquisition loop
+#define DELAY_SLOW 2000 		// slow acquisition loop
+
+// Reference voltages (fine tuned):
+//	measured using AREF when the shield is in place and 
+//	the Arduino is powered by external power with vehicle
+#define ADC_INTERNAL_V 	0.002483f	// manual calibration (was 0.002502f)
+#define ADC_INTERNAL_MV 2.483f		// manual calibration (was 2.502f)
+#define ADC_DEFAULT_V 0.004887f		// uncalibrated
+#define ADC_DEFAULT_MV 4.887f		// uncalibrated
+
+#define LED_PIN 13
+
+#define BAT_R1 24000.0f 		// R1 (ohm)
+#define BAT_R2 2200.0f 			// R2 (ohm)
+
+#define LM35_MVC 10.0f			// mV/C
+#define ACS715_MVA 133.0f		// mv/A
+#define ACS714_MVA 185.0f 		// mv/A
+
+#define BMP085_ADDRESS 0x77		// I2C address
+#define BMP085_OSS 0 			// Oversampling Setting
+#define BMP_MAX 1000 			// Loop protection (number of loops)
+
+// Voltage Divider (for battery levels)
 const float BAT_RK = (BAT_R1 + BAT_R2) / BAT_R2;
+
+// Allegro ACS715 0A to 30A
+const float ACS715_CONV = ADC_INTERNAL_MV / ACS715_MVA;			// Amps per ADC level
+
+// Allegro ACS714 current sensor
+//const int ACS_ZERO = (int) 2500 / ADC_INTERNAL_MV;			// ADC reading for 2.5V (~ 1007)
+//const float ACS714_CONV = ADC_INTERNAL_MV / ACS714_MVA;		// Amps per ADC level
 
 unsigned long time_iq;
 unsigned long delta;
@@ -87,13 +93,10 @@ float bat0, bat1, bat2, bat3;
 float tm0, tm1, tm2, tm3;
 float hih, hm, hb;
 
-
-// BMP085 raw readings
-long raw_ut, raw_up;
-
-// BMP085 output values
-short temperature;
-long pressure;
+// BMP085 barometric pressure sensor
+long raw_ut, raw_up;					// BMP085 raw readings
+short temperature;						// local temperature
+long pressure;							// local pressure
 
 // BMP085 loop control
 short bmp_cnt;
@@ -110,23 +113,23 @@ int b1, b2, mb, mc, md;
 long b5;
 
 
-// ACS714 current sensor 
-//	working in reverse current flow to keep output signal within 0-2.5V range
-//	2.5V output is the steady 0A initial reading
-float acs0;
+// Allegro ACS714/715 current sensor 
+//   * ACS714 output is 2.5V for 0A up to 4.5V at +5A and down to 0.5V at -5A
+//   * ACS715 output is 0.5V for 0A up to 5V at 30A
 int raw_acs0;
+float acs0;
 
 
-// the setup routine runs once when you press reset:
+// the setup routine runs once when you press reset
 void setup() {
-	// disable watchdog, because of [8]
-	wdt_disable();
+	// disable watchdog
+	wdt_disable();					// used [8] as suggestion
 
 	// not ready
 	pinMode(LED_PIN, OUTPUT);
 	digitalWrite(LED_PIN, LOW); 
 
-	// while the serial stream is not open, flash the on-board led:
+	// flash the on-board led while waiting for connection
 	while(!Serial) {
 		digitalWrite(LED_PIN, HIGH);
 		delay(DELAY_SETUP);
@@ -156,22 +159,24 @@ void loop() {
 	// start acquisition (with double readings to avoid interferences [1])
 	digitalWrite(LED_PIN, HIGH);
 
+
 	// current sensor
 	raw_acs0 = analogRead(A11);		// J5 (pin 2)
 	raw_acs0 = analogRead(A11);		// J5 (pin 2)
 
 	// calculate output is Amps
-	acs0 = (float) (ACS_ZERO - raw_acs0) * ACS714_CONV;
+	//acs0 = (float) (ACS_ZERO - raw_acs0) * ACS714_CONV;
+	acs0 = (float) (raw_acs0 - 202)  * ACS715_CONV;
 
 	// send current report
 	report_current();
 
 
-	// acquisition loop delta
+	// acquisition slow-loop delta
 	delta = millis() - time_iq;
 
 	// limit data rate
-	if( delta > DELTA_IQ ) {
+	if( delta > DELAY_SLOW ) {
 		
 		// analog inputs (battery)
 		raw_bat0 = analogRead(A0);		// J4 (pin 1)
@@ -228,6 +233,7 @@ void loop() {
 
 		// send pressure report
 		report_pressure();
+		bmp_dirty = 0;					// reset dirty bits
 
 		
 		// humidity sensor
@@ -242,6 +248,7 @@ void loop() {
 		// send humidity report
 		report_humidity();
 
+
 		// send timestamp
 		Serial.print("$TIME,");
 		Serial.println(time_iq, DEC);
@@ -249,19 +256,18 @@ void loop() {
 		// update timestamp
 		time_iq = millis();
 
-		// reset dirty bits
-		bmp_dirty = 0;
+	} else {
+		// pause between data acquisition
+		delay(DELAY_FAST);
 	}
 
 	// signal end of acquisition
 	digitalWrite(LED_PIN, LOW);
 
-	// pause between data acquisition
-	delay(DELAY_MAIN);
-
 	// reset watchdog
 	wdt_reset();
 }
+
 
 void report_current() {
 	Serial.print("$ACS,");
