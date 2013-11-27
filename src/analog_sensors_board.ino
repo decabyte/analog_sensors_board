@@ -80,7 +80,8 @@ const float ACS715_CONV = ADC_INTERNAL_MV / ACS715_MVA;         // Amps per ADC 
 //const int ACS_ZERO = (int) 2500 / ADC_INTERNAL_MV;            // ADC reading for 2.5V (~ 1007)
 //const float ACS714_CONV = ADC_INTERNAL_MV / ACS714_MVA;       // Amps per ADC level
 
-unsigned long time_iq;
+// timestamps
+unsigned long time_slow;
 unsigned long delta;
 
 // adc readings
@@ -162,18 +163,17 @@ void loop() {
 
     // current sensor
     raw_acs0 = analogRead(A11);     // J5 (pin 2)
-    raw_acs0 = analogRead(A11);     // J5 (pin 2)
 
     // calculate output is Amps
-    //acs0 = (float) (ACS_ZERO - raw_acs0) * ACS714_CONV;
     acs0 = (float) (raw_acs0 - 202)  * ACS715_CONV;
+    //acs0 = (float) (ACS_ZERO - raw_acs0) * ACS714_CONV;
 
     // send current report
     report_current();
 
 
     // acquisition slow-loop delta
-    delta = millis() - time_iq;
+    delta = millis() - time_slow;
 
     // limit data rate
     if( delta > DELAY_SLOW ) {
@@ -254,12 +254,15 @@ void loop() {
         Serial.println(time_iq, DEC);
 
         // update timestamp
-        time_iq = millis();
+        time_slow = millis();
 
     } else {
         // pause between data acquisition
         delay(DELAY_FAST);
     }
+
+    // switch ADCMUX to A11
+    raw_acs0 = analogRead(A11);     // J5 (pin 2)
 
     // signal end of acquisition
     digitalWrite(LED_PIN, LOW);
@@ -273,7 +276,9 @@ void report_current() {
     Serial.print("$ACS,");
     Serial.print(acs0, 4);
     Serial.print(',');
-    Serial.println(raw_acs0, DEC);
+    Serial.print(raw_acs0, DEC);
+    Serial.print(',');
+    Serial.println(millis(), DEC);
 }
 
 void report_battery() {
