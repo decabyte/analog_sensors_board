@@ -251,7 +251,7 @@ void loop() {
 
         // send timestamp
         Serial.print("$TIME,");
-        Serial.println(time_iq, DEC);
+        Serial.println(time_slow, DEC);
 
         // update timestamp
         time_slow = millis();
