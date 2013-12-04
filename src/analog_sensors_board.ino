@@ -46,8 +46,8 @@
 #include <Wire.h>
 
 #define DELAY_SETUP 250         // setup flashing delay
-#define DELAY_FAST 500          // fast acquisition loop
-#define DELAY_SLOW 2000         // slow acquisition loop
+#define DELAY_FAST 250          // fast acquisition loop
+#define DELAY_SLOW 5000         // slow acquisition loop
 
 // Reference voltages (fine tuned):
 //  measured using AREF when the shield is in place and 
