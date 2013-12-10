@@ -46,7 +46,7 @@
 #include <Wire.h>
 
 #define DELAY_SETUP 250         // setup flashing delay
-#define DELAY_FAST 250          // fast acquisition loop
+#define DELAY_FAST 100          // fast acquisition loop
 #define DELAY_SLOW 5000         // slow acquisition loop
 
 // Reference voltages (fine tuned):
@@ -63,8 +63,11 @@
 #define BAT_R2 2200.0f          // R2 (ohm)
 
 #define LM35_MVC 10.0f          // mV/C
-#define ACS715_MVA 133.0f       // mv/A
-#define ACS714_MVA 185.0f       // mv/A
+#define ACS714_MVA 185.0f       // mV/A
+#define ACS715_MVA 133.0f       // mV/A
+
+#define ACS715_OFFSET 201       // ADC level (~ 500mV) for ADC_INTERNAL
+#define ACS715_OFFSET 102       // ADC level (~ 500mV) for ADC_DEFAULT
 
 #define BMP085_ADDRESS 0x77     // I2C address
 #define BMP085_OSS 0            // Oversampling Setting
@@ -74,7 +77,8 @@
 const float BAT_RK = (BAT_R1 + BAT_R2) / BAT_R2;
 
 // Allegro ACS715 0A to 30A
-const float ACS715_CONV = ADC_INTERNAL_MV / ACS715_MVA;         // Amps per ADC level
+//const float ACS715_CONV = ADC_INTERNAL_MV / ACS715_MVA;         // Amps per ADC level
+const float ACS715_CONV = ADC_DEFAULT_MV / ACS715_MVA;         // Amps per ADC level
 
 // Allegro ACS714 current sensor
 //const int ACS_ZERO = (int) 2500 / ADC_INTERNAL_MV;            // ADC reading for 2.5V (~ 1007)
@@ -139,8 +143,8 @@ void setup() {
     }
 
     // switch to precise reference (2.56V)
-    analogReference(INTERNAL);
-    delay(5);
+    //analogReference(INTERNAL);
+    //delay(5);
 
     // enable watchdog
     wdt_enable(WDTO_8S);
@@ -165,7 +169,7 @@ void loop() {
     raw_acs0 = analogRead(A11);     // J5 (pin 2)
 
     // calculate output is Amps
-    acs0 = (float) (raw_acs0 - 202)  * ACS715_CONV;
+    acs0 = (float) ((raw_acs0 - ACS715_OFFSET) * ACS715_CONV);
     //acs0 = (float) (ACS_ZERO - raw_acs0) * ACS714_CONV;
 
     // send current report
@@ -176,7 +180,8 @@ void loop() {
     delta = millis() - time_slow;
 
     // limit data rate
-    if( delta > DELAY_SLOW ) {
+    //if( delta > DELAY_SLOW ) {
+    if( false ) {
         
         // analog inputs (battery)
         raw_bat0 = analogRead(A0);      // J4 (pin 1)
