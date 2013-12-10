@@ -140,7 +140,9 @@ void setup() {
 
     // switch to precise reference (2.56V)
     analogReference(INTERNAL);
-    delay(5);
+
+    // (reset) protection delay
+    delay(5000);
 
     // enable watchdog
     wdt_enable(WDTO_8S);
