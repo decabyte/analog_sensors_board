@@ -146,7 +146,7 @@ void setup() {
     //analogReference(INTERNAL);
     
     // (reset) protection delay
-    delay(5000);
+    delay(2500);
 
     // enable watchdog
     wdt_enable(WDTO_8S);
