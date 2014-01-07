@@ -46,8 +46,8 @@
 #include <Wire.h>
 
 #define DELAY_SETUP 250         // setup flashing delay
-#define DELAY_FAST 250          // fast acquisition loop
 #define DELAY_SLOW 5000         // slow acquisition loop
+//#define DELAY_FAST 250          // fast acquisition loop
 
 // Reference voltages (fine tuned):
 //  measured using AREF when the shield is in place and 
@@ -64,6 +64,7 @@
 
 #define LM35_MVC 10.0f          // mV/C
 #define ACS715_MVA 133.0f       // mv/A
+#define ACS715_OFF 202          // ADC levels (@ ADC_INTERNAL)
 #define ACS714_MVA 185.0f       // mv/A
 
 #define BMP085_ADDRESS 0x77     // I2C address
@@ -121,6 +122,10 @@ int raw_acs0;
 float acs0;
 
 
+// loop control
+int DELAY_FAST = 250;
+
+
 // the setup routine runs once when you press reset
 void setup() {
     // disable watchdog
@@ -142,7 +147,7 @@ void setup() {
     analogReference(INTERNAL);
 
     // (reset) protection delay
-    delay(2500);
+    delay(1000);
 
     // enable watchdog
     wdt_enable(WDTO_8S);
@@ -159,27 +164,57 @@ void setup() {
 // the loop routine runs over and over again forever:
 void loop() {
 
+    // serial control
+    if(Serial.available() > 0) {
+        char ser = (char) Serial.read();
+
+        switch(ser) {
+            case 'S':
+                DELAY_FAST = 500;
+                break;
+            case 'N':
+                DELAY_FAST = 250;
+                break;
+            case 'F':
+                DELAY_FAST = 100;
+                break;
+            case 'R':
+                wdt_disable();
+                wdt_enable(WDTO_250MS);
+                delay(1000);
+                break;
+            default:
+                Serial.print("$SER,");
+                Serial.println(ser);
+        }
+    }
+
+
     // start acquisition (with double readings to avoid interferences [1])
     digitalWrite(LED_PIN, HIGH);
 
-
     // current sensor
     raw_acs0 = analogRead(A11);     // J5 (pin 2)
+    raw_acs0 = analogRead(A11);     // J5 (pin 2)
+
+    // signal end of acquisition
+    digitalWrite(LED_PIN, LOW);
 
     // calculate output is Amps
-    acs0 = (float) (raw_acs0 - 202)  * ACS715_CONV;
+    acs0 = (float) (raw_acs0 - ACS715_OFF)  * ACS715_CONV;
     //acs0 = (float) (ACS_ZERO - raw_acs0) * ACS714_CONV;
 
     // send current report
     report_current();
 
-
     // acquisition slow-loop delta
     delta = millis() - time_slow;
 
     // limit data rate
-    if( delta > DELAY_SLOW ) {
-        
+    if( delta < DELAY_SLOW ) {
+        // pause between data acquisition
+        delay(DELAY_FAST);
+    } else {
         // analog inputs (battery)
         raw_bat0 = analogRead(A0);      // J4 (pin 1)
         raw_bat0 = analogRead(A0);      // J4 (pin 1)
@@ -257,17 +292,7 @@ void loop() {
 
         // update timestamp
         time_slow = millis();
-
-    } else {
-        // pause between data acquisition
-        delay(DELAY_FAST);
     }
-
-    // switch ADCMUX to A11
-    raw_acs0 = analogRead(A11);     // J5 (pin 2)
-
-    // signal end of acquisition
-    digitalWrite(LED_PIN, LOW);
 
     // reset watchdog
     wdt_reset();
