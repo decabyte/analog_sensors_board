@@ -46,10 +46,9 @@
 #include <Wire.h>
 
 #define DELAY_SETUP 250         // setup flashing delay
-#define DELAY_SLOW 5000         // slow acquisition loop
-//#define DELAY_FAST 250          // fast acquisition loop
 #define DELAY_LEDS 500          // led blink rate
-
+#define DELAY_SLOW 5000         // slow acquisition loop
+#define DELAY_FAST 250          // fast acquisition loop
 
 // Nessie LEDs and Water Sensors
 #define LED_GREEN 6
@@ -58,6 +57,7 @@
 #define SW_MOTOR 9
 #define WATER_FWD 10
 #define WATER_AFT 11
+#define BAT_LOW 26.5f
 
 
 // Reference voltages (fine tuned):
@@ -132,18 +132,20 @@ float acs0;
 
 
 // time & timestamps
-int DELAY_FAST = 250;
-unsigned long time_slow;
+int delay_acs = 250;
+unsigned long time_env;
+unsigned long time_acs;
 unsigned long time_leds;
 unsigned long delta;
 
 // default inputs
-int status_water_fwd = HIGH;
-int status_water_aft = HIGH;
-int status_sw_motor = LOW;
-int status_led_green = LOW;
-int status_led_yellow = LOW;
-int status_led_red = LOW;
+int status_water_fwd = 0;
+int status_water_aft = 0;
+int status_sw_motor = 0;
+
+boolean status_led_green = false;
+boolean status_led_yellow = false;
+boolean status_led_red = false;
 
 
 // the setup routine runs once when you press reset
@@ -154,6 +156,18 @@ void setup() {
     // not ready
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, LOW); 
+
+    // LEDs and INPUTs init
+    pinMode(LED_GREEN, OUTPUT); 
+    pinMode(LED_YELLOW, OUTPUT); 
+    pinMode(LED_RED, OUTPUT); 
+    pinMode(SW_MOTOR, INPUT); 
+    pinMode(WATER_FWD, INPUT); 
+    pinMode(WATER_AFT, INPUT); 
+
+    digitalWrite(LED_GREEN, LOW); 
+    digitalWrite(LED_YELLOW, LOW); 
+    digitalWrite(LED_RED, LOW); 
 
     // flash the on-board led while waiting for connection
     // while(!Serial) {
@@ -166,33 +180,23 @@ void setup() {
     // switch to precise reference (2.56V)
     analogReference(INTERNAL);
 
-    // LED and INPUTs init
-    pinMode(LED_GREEN, OUTPUT); 
-    pinMode(LED_YELLOW, OUTPUT); 
-    pinMode(LED_RED, OUTPUT); 
-    pinMode(SW_MOTOR, INPUT); 
-    pinMode(WATER_FWD, INPUT); 
-    pinMode(WATER_AFT, INPUT); 
-
-    for(int i=0; i<4; i++){
-        // LED flash on
-        digitalWrite(LED_GREEN, HIGH); 
-        digitalWrite(LED_YELLOW, HIGH); 
-        digitalWrite(LED_RED, HIGH);
-
-        delay(1000);
-
-        // LED flash off
-        digitalWrite(LED_GREEN, LOW); 
-        digitalWrite(LED_YELLOW, LOW); 
-        digitalWrite(LED_RED, LOW);          
-    }  
+    // initial LEDs flashing
+    digitalWrite(LED_GREEN, HIGH); 
+    digitalWrite(LED_YELLOW, HIGH); 
+    digitalWrite(LED_RED, HIGH);
 
     // (reset) protection delay
-    //delay(1000);
+    delay(1000);
+
+    // reset LEDs
+    digitalWrite(LED_GREEN, LOW); 
+    digitalWrite(LED_YELLOW, LOW); 
+    digitalWrite(LED_RED, LOW);          
+
 
     // enable watchdog
     wdt_enable(WDTO_8S);
+
 
     // bmp085 init
     Wire.begin();
@@ -203,48 +207,9 @@ void setup() {
     digitalWrite(LED_PIN, HIGH);
 }
 
-// the loop routine runs over and over again forever:
+
+// the loop routine runs over and over again forever
 void loop() {
-
-    // detect inputs
-    status_water_fwd = digitalRead(WATER_FWD);
-    status_water_aft = digitalRead(WATER_AFT);
-    status_sw_motor = digitalRead(SW_MOTOR);
-
-    if(status_sw_motor == LOW) {
-        status_led_green = 0x01;
-    } else {
-        status_led_green = 0x00;
-    }
-
-    if(true) {
-       status_led_yellow = 0x01; 
-    } else {
-       status_led_yellow = 0x00; 
-    }
-
-    if(status_water_fwd == HIGH && status_water_aft == HIGH) {
-        status_led_red = 0x01;    
-    } else {
-        status_led_red = 0x00;
-    }
-
-    // led slow-loop delta
-    delta = millis() - time_leds;
-
-    if(delta >= DELAY_LEDS) {
-        // led indications
-        digitalWrite(LED_GREEN, status_led_green);
-        digitalWrite(LED_YELLOW, status_led_yellow);
-        digitalWrite(LED_RED, status_led_red);
-
-        // update timestamp
-        time_leds = millis();
-
-        // send indicators report
-        report_indicators();
-    }
-
 
     // serial control
     if(Serial.available() > 0) {
@@ -252,13 +217,13 @@ void loop() {
 
         switch(ser) {
             case 'S':
-                DELAY_FAST = 1000;
+                delay_acs = 1000;
                 break;
             case 'N':
-                DELAY_FAST = 500;
+                delay_acs = 500;
                 break;
             case 'F':
-                DELAY_FAST = 250;
+                delay_acs = 250;
                 break;
             case 'R':
                 wdt_disable();
@@ -272,31 +237,75 @@ void loop() {
     }
 
 
-    // start acquisition (with double readings to avoid interferences [1])
-    digitalWrite(LED_PIN, HIGH);
+    // detect inputs
+    status_water_fwd = digitalRead(WATER_FWD);
+    status_water_aft = digitalRead(WATER_AFT);
+    status_sw_motor = digitalRead(SW_MOTOR);
 
-    // current sensor
-    raw_acs0 = analogRead(A11);     // J5 (pin 2)
-    raw_acs0 = analogRead(A11);     // J5 (pin 2)
+    // led indicator loop
+    delta = millis() - time_leds;
 
-    // signal end of acquisition
-    digitalWrite(LED_PIN, LOW);
+    if(delta >= DELAY_LEDS) {
 
-    // calculate output is Amps
-    acs0 = (float) (raw_acs0 - ACS715_OFF)  * ACS715_CONV;
-    //acs0 = (float) (ACS_ZERO - raw_acs0) * ACS714_CONV;
+        if(status_sw_motor == LOW) {
+            status_led_green = true;
+        } else {
+            status_led_green = !status_led_green;
+        }
 
-    // send current report
-    report_current();
+        if(status_water_fwd == HIGH && status_water_aft == HIGH) {
+            status_led_red = true;    
+        } else {
+            status_led_red = !status_led_red;
+        }
 
-    // acquisition slow-loop delta
-    delta = millis() - time_slow;
+        if( bat0 > BAT_LOW ) {
+            status_led_yellow = true; 
+        } else {
+            status_led_yellow = !status_led_yellow; 
+        }
+
+        // led indications
+        digitalWrite(LED_GREEN, status_led_green);
+        digitalWrite(LED_YELLOW, status_led_yellow);
+        digitalWrite(LED_RED, status_led_red);
+
+        // update timestamp
+        time_leds = millis();
+    }
+
+
+    // current sensor loop
+    delta = millis() - time_acs;
+
+    if(delta >= delay_acs) {
+        // start acquisition (with double readings to avoid interferences [1])
+        digitalWrite(LED_PIN, HIGH);
+
+        // current sensor
+        raw_acs0 = analogRead(A11);     // J5 (pin 2)
+        raw_acs0 = analogRead(A11);     // J5 (pin 2)
+
+        // signal end of acquisition
+        digitalWrite(LED_PIN, LOW);
+
+        // calculate output is Amps
+        acs0 = (float) (raw_acs0 - ACS715_OFF)  * ACS715_CONV;
+        //acs0 = (float) (ACS_ZERO - raw_acs0) * ACS714_CONV;
+
+        // send current report
+        report_current();
+
+        // update timestamp
+        time_acs = millis();
+    }
+
+
+    // environmental sensors loop
+    delta = millis() - time_env;
 
     // limit data rate
-    if( delta < DELAY_SLOW ) {
-        // pause between data acquisition
-        delay(DELAY_FAST);
-    } else {
+    if(delta >= DELAY_SLOW) {
         // analog inputs (battery)
         raw_bat0 = analogRead(A0);      // J4 (pin 1)
         raw_bat0 = analogRead(A0);      // J4 (pin 1)
@@ -368,23 +377,32 @@ void loop() {
         report_humidity();
 
 
+        // send indicators report
+        report_indicators();
+
+
         // send timestamp
         Serial.print("$TIME,");
-        Serial.println(time_slow, DEC);
+        Serial.println(time_env, DEC);
 
         // update timestamp
-        time_slow = millis();
+        time_env = millis();
     }
+
 
     // reset watchdog
     wdt_reset();
 }
 
+
 void report_indicators() {
-    Serial.print("$WATER_FWD,");
-    Serial.println(status_water_fwd, DEC);
-    Serial.print("$WATER_AFT,");
+    Serial.print("$WATER,");
+    Serial.print(status_water_fwd, DEC);
+    Serial.print(",");
     Serial.println(status_water_aft, DEC);
+
+    Serial.print("$MOTOR,");
+    Serial.println(status_sw_motor, DEC);
 
     Serial.print("$LED,");
     Serial.print(status_led_green, DEC);
