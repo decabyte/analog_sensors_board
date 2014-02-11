@@ -383,11 +383,17 @@ void loop() {
 
 void report_indicators() {
     Serial.print("$IND,");
-    Serial.print(sta, 4);
+    Serial.print(status_led_green, DEC);
     Serial.print(',');
-    Serial.print(raw_acs0, DEC);
+    Serial.print(status_led_yellow, DEC);
     Serial.print(',');
-    Serial.println(millis(), DEC);
+    Serial.print(status_led_red, DEC);
+    Serial.print(',');
+    Serial.print(status_sw_motor, DEC);
+    Serial.print(',');
+    Serial.print(status_water_fwd, DEC);
+    Serial.print(',');
+    Serial.println(status_water_aft, DEC);
 }
 
 
