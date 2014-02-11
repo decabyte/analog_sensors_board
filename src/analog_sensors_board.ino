@@ -52,8 +52,8 @@
 
 
 // Nessie LEDs and Water Sensors
-#define LED_GREEN 5
-#define LED_YELLOW 6
+#define LED_GREEN 6
+#define LED_YELLOW 5
 #define LED_RED 7
 #define SW_MOTOR 9
 #define WATER_FWD 10
@@ -180,7 +180,7 @@ void setup() {
         digitalWrite(LED_YELLOW, HIGH); 
         digitalWrite(LED_RED, HIGH);
 
-        delay(DELAY_LEDS);
+        delay(1000);
 
         // LED flash off
         digitalWrite(LED_GREEN, LOW); 
@@ -214,19 +214,19 @@ void loop() {
     if(status_sw_motor == LOW) {
         status_led_green = 0x01;
     } else {
-        status_led_green = 0x01 ^ status_led_green;
+        status_led_green = 0x00;
     }
 
     if(true) {
        status_led_yellow = 0x01; 
     } else {
-       status_led_yellow = 0x01 ^ status_led_yellow; 
+       status_led_yellow = 0x00; 
     }
 
     if(status_water_fwd == HIGH && status_water_aft == HIGH) {
         status_led_red = 0x01;    
     } else {
-        status_led_red = 0x01 ^ status_led_red;
+        status_led_red = 0x00;
     }
 
     // led slow-loop delta
@@ -240,6 +240,9 @@ void loop() {
 
         // update timestamp
         time_leds = millis();
+
+        // send indicators report
+        report_indicators();
     }
 
 
@@ -365,10 +368,6 @@ void loop() {
         report_humidity();
 
 
-        // send indicators report
-        report_indicators();
-
-
         // send timestamp
         Serial.print("$TIME,");
         Serial.println(time_slow, DEC);
@@ -382,18 +381,17 @@ void loop() {
 }
 
 void report_indicators() {
-    Serial.print("$IND,");
+    Serial.print("$WATER_FWD,");
+    Serial.println(status_water_fwd, DEC);
+    Serial.print("$WATER_AFT,");
+    Serial.println(status_water_aft, DEC);
+
+    Serial.print("$LED,");
     Serial.print(status_led_green, DEC);
     Serial.print(',');
     Serial.print(status_led_yellow, DEC);
     Serial.print(',');
-    Serial.print(status_led_red, DEC);
-    Serial.print(',');
-    Serial.print(status_sw_motor, DEC);
-    Serial.print(',');
-    Serial.print(status_water_fwd, DEC);
-    Serial.print(',');
-    Serial.println(status_water_aft, DEC);
+    Serial.println(status_led_red, DEC);
 }
 
 
