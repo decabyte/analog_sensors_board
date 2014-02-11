@@ -141,6 +141,9 @@ unsigned long delta;
 int status_water_fwd = HIGH;
 int status_water_aft = HIGH;
 int status_sw_motor = LOW;
+int status_led_green = LOW;
+int status_led_yellow = LOW;
+int status_led_red = LOW;
 
 
 // the setup routine runs once when you press reset
@@ -171,18 +174,22 @@ void setup() {
     pinMode(WATER_FWD, INPUT); 
     pinMode(WATER_AFT, INPUT); 
 
-    // LED flash
-    digitalWrite(LED_GREEN, HIGH); 
-    digitalWrite(LED_YELLOW, HIGH); 
-    digitalWrite(LED_RED, HIGH); 
+    for(int i=0; i<4; i++){
+        // LED flash on
+        digitalWrite(LED_GREEN, HIGH); 
+        digitalWrite(LED_YELLOW, HIGH); 
+        digitalWrite(LED_RED, HIGH);
+
+        delay(DELAY_LEDS);
+
+        // LED flash off
+        digitalWrite(LED_GREEN, LOW); 
+        digitalWrite(LED_YELLOW, LOW); 
+        digitalWrite(LED_RED, LOW);          
+    }  
 
     // (reset) protection delay
-    delay(1000);
-
-    // LED flash
-    digitalWrite(LED_GREEN, LOW); 
-    digitalWrite(LED_YELLOW, LOW); 
-    digitalWrite(LED_RED, LOW); 
+    //delay(1000);
 
     // enable watchdog
     wdt_enable(WDTO_8S);
@@ -204,26 +211,36 @@ void loop() {
     status_water_aft = digitalRead(WATER_AFT);
     status_sw_motor = digitalRead(SW_MOTOR);
 
-    if(status_sw_motor == HIGH) {
-        digitalWrite(LED_GREEN, HIGH); 
+    if(status_sw_motor == LOW) {
+        status_led_green = 0x01;
     } else {
-        digitalWrite(LED_GREEN, LOW); 
+        status_led_green = 0x01 ^ status_led_green;
     }
 
-    if(status_water_fwd == HIGH || status_water_aft == HIGH) {
-        digitalWrite(LED_RED, HIGH);    
+    if(true) {
+       status_led_yellow = 0x01; 
     } else {
-        digitalWrite(LED_RED, LOW);
+       status_led_yellow = 0x01 ^ status_led_yellow; 
     }
 
-    // // led slow-loop delta
-    // delta = millis() - time_leds;
+    if(status_water_fwd == HIGH && status_water_aft == HIGH) {
+        status_led_red = 0x01;    
+    } else {
+        status_led_red = 0x01 ^ status_led_red;
+    }
 
-    // if(delta >= DELAY_LEDS) {
+    // led slow-loop delta
+    delta = millis() - time_leds;
 
-    //     // update timestamp
-    //     time_leds = millis();
-    // }
+    if(delta >= DELAY_LEDS) {
+        // led indications
+        digitalWrite(LED_GREEN, status_led_green);
+        digitalWrite(LED_YELLOW, status_led_yellow);
+        digitalWrite(LED_RED, status_led_red);
+
+        // update timestamp
+        time_leds = millis();
+    }
 
 
     // serial control
@@ -348,6 +365,10 @@ void loop() {
         report_humidity();
 
 
+        // send indicators report
+        report_indicators();
+
+
         // send timestamp
         Serial.print("$TIME,");
         Serial.println(time_slow, DEC);
@@ -358,6 +379,15 @@ void loop() {
 
     // reset watchdog
     wdt_reset();
+}
+
+void report_indicators() {
+    Serial.print("$IND,");
+    Serial.print(sta, 4);
+    Serial.print(',');
+    Serial.print(raw_acs0, DEC);
+    Serial.print(',');
+    Serial.println(millis(), DEC);
 }
 
 
