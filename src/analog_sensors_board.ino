@@ -48,6 +48,17 @@
 #define DELAY_SETUP 250         // setup flashing delay
 #define DELAY_SLOW 5000         // slow acquisition loop
 //#define DELAY_FAST 250          // fast acquisition loop
+#define DELAY_LEDS 500          // led blink rate
+
+
+// Nessie LEDs and Water Sensors
+#define LED_GREEN 5
+#define LED_YELLOW 6
+#define LED_RED 7
+#define SW_MOTOR 9
+#define WATER_FWD 10
+#define WATER_AFT 11
+
 
 // Reference voltages (fine tuned):
 //  measured using AREF when the shield is in place and 
@@ -81,9 +92,6 @@ const float ACS715_CONV = ADC_INTERNAL_MV / ACS715_MVA;         // Amps per ADC 
 //const int ACS_ZERO = (int) 2500 / ADC_INTERNAL_MV;            // ADC reading for 2.5V (~ 1007)
 //const float ACS714_CONV = ADC_INTERNAL_MV / ACS714_MVA;       // Amps per ADC level
 
-// timestamps
-unsigned long time_slow;
-unsigned long delta;
 
 // adc readings
 int raw_bat0, raw_bat1, raw_bat2, raw_bat3;
@@ -94,6 +102,7 @@ int raw_hih;
 float bat0, bat1, bat2, bat3;
 float tm0, tm1, tm2, tm3;
 float hih, hm, hb;
+
 
 // BMP085 barometric pressure sensor
 long raw_ut, raw_up;                    // BMP085 raw readings
@@ -122,8 +131,16 @@ int raw_acs0;
 float acs0;
 
 
-// loop control
+// time & timestamps
 int DELAY_FAST = 250;
+unsigned long time_slow;
+unsigned long time_leds;
+unsigned long delta;
+
+// default inputs
+int status_water_fwd = HIGH;
+int status_water_aft = HIGH;
+int status_sw_motor = LOW;
 
 
 // the setup routine runs once when you press reset
@@ -136,18 +153,36 @@ void setup() {
     digitalWrite(LED_PIN, LOW); 
 
     // flash the on-board led while waiting for connection
-    while(!Serial) {
-        digitalWrite(LED_PIN, HIGH);
-        delay(DELAY_SETUP);
-        digitalWrite(LED_PIN, LOW);
-        delay(DELAY_SETUP);
-    }
+    // while(!Serial) {
+    //     digitalWrite(LED_PIN, HIGH);
+    //     delay(DELAY_SETUP);
+    //     digitalWrite(LED_PIN, LOW);
+    //     delay(DELAY_SETUP);
+    // }
 
     // switch to precise reference (2.56V)
     analogReference(INTERNAL);
 
+    // LED and INPUTs init
+    pinMode(LED_GREEN, OUTPUT); 
+    pinMode(LED_YELLOW, OUTPUT); 
+    pinMode(LED_RED, OUTPUT); 
+    pinMode(SW_MOTOR, INPUT); 
+    pinMode(WATER_FWD, INPUT); 
+    pinMode(WATER_AFT, INPUT); 
+
+    // LED flash
+    digitalWrite(LED_GREEN, HIGH); 
+    digitalWrite(LED_YELLOW, HIGH); 
+    digitalWrite(LED_RED, HIGH); 
+
     // (reset) protection delay
     delay(1000);
+
+    // LED flash
+    digitalWrite(LED_GREEN, LOW); 
+    digitalWrite(LED_YELLOW, LOW); 
+    digitalWrite(LED_RED, LOW); 
 
     // enable watchdog
     wdt_enable(WDTO_8S);
@@ -164,19 +199,46 @@ void setup() {
 // the loop routine runs over and over again forever:
 void loop() {
 
+    // detect inputs
+    status_water_fwd = digitalRead(WATER_FWD);
+    status_water_aft = digitalRead(WATER_AFT);
+    status_sw_motor = digitalRead(SW_MOTOR);
+
+    if(status_sw_motor == HIGH) {
+        digitalWrite(LED_GREEN, HIGH); 
+    } else {
+        digitalWrite(LED_GREEN, LOW); 
+    }
+
+    if(status_water_fwd == HIGH || status_water_aft == HIGH) {
+        digitalWrite(LED_RED, HIGH);    
+    } else {
+        digitalWrite(LED_RED, LOW);
+    }
+
+    // // led slow-loop delta
+    // delta = millis() - time_leds;
+
+    // if(delta >= DELAY_LEDS) {
+
+    //     // update timestamp
+    //     time_leds = millis();
+    // }
+
+
     // serial control
     if(Serial.available() > 0) {
         char ser = (char) Serial.read();
 
         switch(ser) {
             case 'S':
-                DELAY_FAST = 500;
+                DELAY_FAST = 1000;
                 break;
             case 'N':
-                DELAY_FAST = 250;
+                DELAY_FAST = 500;
                 break;
             case 'F':
-                DELAY_FAST = 100;
+                DELAY_FAST = 250;
                 break;
             case 'R':
                 wdt_disable();
