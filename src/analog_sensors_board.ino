@@ -57,7 +57,11 @@
 #define SW_MOTOR 9
 #define WATER_FWD 10
 #define WATER_AFT 11
+
 #define BAT_LOW 26.5f
+#define TH_MOTOR_HIGH 10
+#define TH_MOTOR_LOW -40
+#define TH_WATER 10
 
 
 // Reference voltages (fine tuned):
@@ -142,6 +146,9 @@ unsigned long delta;
 int status_water_fwd = 0;
 int status_water_aft = 0;
 int status_sw_motor = 0;
+
+boolean water_detected = false;
+boolean motors_enabled = false;
 
 boolean status_led_green = false;
 boolean status_led_yellow = false;
@@ -237,26 +244,71 @@ void loop() {
     }
 
 
-    // detect inputs
-    status_water_fwd = digitalRead(WATER_FWD);
-    status_water_aft = digitalRead(WATER_AFT);
-    status_sw_motor = digitalRead(SW_MOTOR);
+    // water leak detectors
+    //  latched dection after a thrsold
+    if(!water_detected) {
+        if(digitalRead(WATER_FWD) == LOW) {
+            status_water_fwd += 1;
+        }
+
+        if(digitalRead(WATER_AFT) == LOW) {
+            status_water_aft += 1;
+        }
+
+        if(status_water_fwd > TH_WATER || status_water_aft > TH_WATER) {
+            water_detected = true;
+        }
+    }
+
+
+    // sw_motor magnetic switch (hall-sensor)
+    //      high:   magnetic key removed
+    //      low:    magnetic key detected
+    if(digitalRead(SW_MOTOR) == HIGH) {
+        status_sw_motor += 1;
+    } else {
+        status_sw_motor -= 1;
+    }
+
+    // sw_motor hysteresis cycle
+    if(status_sw_motor > TH_MOTOR_HIGH) {
+        motors_enabled = false;
+        status_sw_motor = 0;    
+    }
+
+    if(status_sw_motor < TH_MOTOR_LOW) {
+        motors_enabled = true;
+        status_sw_motor = 0;
+    }
+
 
     // led indicator loop
     delta = millis() - time_leds;
 
     if(delta >= DELAY_LEDS) {
 
-        if(status_sw_motor == LOW) {
+        // if(status_sw_motor == LOW) {
+        //     status_led_green = true;
+        // } else {
+        //     status_led_green = !status_led_green;
+        // }
+
+        if(motors_enabled) {
             status_led_green = true;
         } else {
             status_led_green = !status_led_green;
         }
 
-        if(status_water_fwd == HIGH && status_water_aft == HIGH) {
-            status_led_red = true;    
+        // if(status_water_fwd == HIGH && status_water_aft == HIGH) {
+        //     status_led_red = true;    
+        // } else {
+        //     status_led_red = !status_led_red;
+        // }
+
+        if(water_detected) {
+            status_led_red = !status_led_red;    
         } else {
-            status_led_red = !status_led_red;
+            status_led_red = true;
         }
 
         if( bat0 > BAT_LOW ) {
@@ -397,12 +449,14 @@ void loop() {
 
 void report_indicators() {
     Serial.print("$WATER,");
+    Serial.print(water_detected, DEC);
+    Serial.print(",");
     Serial.print(status_water_fwd, DEC);
     Serial.print(",");
     Serial.println(status_water_aft, DEC);
 
     Serial.print("$MOTOR,");
-    Serial.println(status_sw_motor, DEC);
+    Serial.println(motors_enabled, DEC);
 
     Serial.print("$LED,");
     Serial.print(status_led_green, DEC);
