@@ -292,7 +292,7 @@ void loop() {
         if(motors_enabled) {
             // send priority alert
             Serial.print("$MOTOR,");
-            Serial.println(motors_enabled, DEC);
+            Serial.println(!motors_enabled, DEC);
         }
 
         motors_enabled = false;
