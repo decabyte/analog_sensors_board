@@ -187,19 +187,27 @@ void setup() {
     // switch to precise reference (2.56V)
     analogReference(INTERNAL);
 
-    // initial LEDs flashing
-    digitalWrite(LED_GREEN, HIGH); 
-    digitalWrite(LED_YELLOW, HIGH); 
-    digitalWrite(LED_RED, HIGH);
+    // Arduino Leonardo has some difficulties entering in bootloarder upload mode
+    // if it is sending data to serial in loop() preventing firmware update without
+    // triggering the manual reset using the push-button.
+    //
+    // A 5-sec initial delay is then inserted below to provide sufficent time after
+    // a software-triggered reset to upload a new firmware using serial bootloader
 
-    // (reset) protection delay
-    delay(1000);
+    // reset protection delay (DO NOT REMOVE)
+    for(int i=0; i<5; i++) {
+        // initial LEDs flashing
+        digitalWrite(LED_GREEN, HIGH); 
+        digitalWrite(LED_YELLOW, HIGH); 
+        digitalWrite(LED_RED, HIGH);
 
-    // reset LEDs
-    digitalWrite(LED_GREEN, LOW); 
-    digitalWrite(LED_YELLOW, LOW); 
-    digitalWrite(LED_RED, LOW);          
+        delay(1000);
 
+        // reset LEDs
+        digitalWrite(LED_GREEN, LOW); 
+        digitalWrite(LED_YELLOW, LOW); 
+        digitalWrite(LED_RED, LOW);                  
+    }
 
     // enable watchdog
     wdt_enable(WDTO_8S);
