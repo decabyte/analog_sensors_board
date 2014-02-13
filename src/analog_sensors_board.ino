@@ -288,12 +288,15 @@ void loop() {
 
     // sw_motor hysteresis cycle
     if(status_sw_motor > TH_MOTOR_HIGH) {
+
+        if(motors_enabled) {
+            // send priority alert
+            Serial.print("$MOTOR,");
+            Serial.println(motors_enabled, DEC);
+        }
+
         motors_enabled = false;
         status_sw_motor = 0;
-        
-        // send priority alert
-        Serial.print("$MOTOR,");
-        Serial.println(motors_enabled, DEC);    
     }
 
     if(status_sw_motor < TH_MOTOR_LOW) {
