@@ -265,6 +265,14 @@ void loop() {
 
         if(status_water_fwd > TH_WATER || status_water_aft > TH_WATER) {
             water_detected = true;
+
+            // send priority alert
+            Serial.print("$WATER,");
+            Serial.print(water_detected, DEC);
+            Serial.print(",");
+            Serial.print(status_water_fwd, DEC);
+            Serial.print(",");
+            Serial.println(status_water_aft, DEC);
         }
     }
 
@@ -281,7 +289,11 @@ void loop() {
     // sw_motor hysteresis cycle
     if(status_sw_motor > TH_MOTOR_HIGH) {
         motors_enabled = false;
-        status_sw_motor = 0;    
+        status_sw_motor = 0;
+        
+        // send priority alert
+        Serial.print("$MOTOR,");
+        Serial.println(motors_enabled, DEC);    
     }
 
     if(status_sw_motor < TH_MOTOR_LOW) {
