@@ -59,7 +59,7 @@
 #define WATER_AFT 11
 
 #define BAT_LOW 26.5f
-#define TH_MOTOR_HIGH 10
+#define TH_MOTOR_HIGH 1
 #define TH_MOTOR_LOW -100
 #define TH_WATER 10
 
@@ -168,7 +168,7 @@ void setup() {
     pinMode(LED_GREEN, OUTPUT); 
     pinMode(LED_YELLOW, OUTPUT); 
     pinMode(LED_RED, OUTPUT); 
-    pinMode(SW_MOTOR, INPUT); 
+    pinMode(SW_MOTOR, INPUT_PULLUP); 
     pinMode(WATER_FWD, INPUT); 
     pinMode(WATER_AFT, INPUT); 
 
