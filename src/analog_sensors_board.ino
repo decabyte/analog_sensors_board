@@ -60,7 +60,7 @@
 
 #define BAT_LOW 26.5f
 #define TH_MOTOR_HIGH 10
-#define TH_MOTOR_LOW -40
+#define TH_MOTOR_LOW -100
 #define TH_WATER 10
 
 
