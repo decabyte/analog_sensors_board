@@ -456,11 +456,15 @@ void loop() {
         raw_hih = analogRead(A6);       // HIH-4030 (pin 2)
         raw_hih = analogRead(A6);       // HIH-4030 (pin 2)
 
-        // relative humidity with temperature correction (see hih_4030_fitting.m)
-        hm = (0.0002f * temperature) + 0.0763f;         // x-coeffient fitting
-        hb = (-0.0612f * temperature) - 24.4265f;       // b-term fitting
-        hih = hm * float(raw_hih + 524) + hb;           // ADC ref (5.0 V)  this is scaling back the ADC reading
-        // hih = hm * float(raw_hih) + hb;              // ADC ref (2.56 V)
+        // // ADC 2.56V ref -- relative humidity with temperature correction (see hih_4030_fitting.m)
+        // hm = (0.0002f * temperature) + 0.0763f;         // x-coeffient fitting
+        // hb = (-0.0612f * temperature) - 24.4265f;       // b-term fitting
+        // hih = hm * float(raw_hih) + hb;                 // ADC ref (2.56 V)
+
+        // ADC 5.00V ref -- relative humidity with temperature correction (see hih_4030_fitting.m)
+        hm = (0.00038f * temperature) + 0.14900f;       // x-coeffient fitting
+        hb = (-0.06166f * temperature) -24.43629f;      // b-term fitting
+        hih = hm * float(raw_hih) + hb;                 // ADC ref (5.0 V)
 
         // send humidity report
         report_humidity();

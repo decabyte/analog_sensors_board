@@ -1,9 +1,10 @@
-% hih-4030 fitting at 2.56V analog reference
+% hih-4030 fitting at 2.56V or 5.0V analog reference
 
 clear all; close all; clc;
 
 % model parameter
-ADC_V = 2.56 / 1023;
+%ADC_V = 2.56 / 1023;
+ADC_V = 5.0 / 1023;
 
 % input model data
 %   V@0%    V@100%  T
@@ -33,7 +34,7 @@ end
 M = polyfit(A(:,3), P(:,1), 1);
 B = polyfit(A(:,3), P(:,2), 1);
 
-fprintf('\nRH%% = (%1.4f * temp + %1.4f) * x + (%1.4f * temp + %1.4f) \n\n', ... 
+fprintf('\nRH%% = (%1.5f * temp + %1.5f) * x + (%1.5f * temp + %1.5f) \n\n', ... 
     M(1), M(2), B(1), B(2));
 
 %% data plot
@@ -45,7 +46,7 @@ vh = line([1023 1023], [0 100]);
 set(vh,'LineStyle','--','Color','k');
 
 for k = 1 : size(A,1)
-    x = 320:1600;
+    x = 100:1600;
     t = A(k,3);
     y = (M(1)*t + M(2)) * x + (B(1)*t + B(2));
     
