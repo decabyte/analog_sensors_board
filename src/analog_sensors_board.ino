@@ -81,7 +81,6 @@
 
 #define LM35_MVC 10.0f          // mV/C
 #define ACS715_MVA 133.0f       // mv/A
-#define ACS715_OFF 202          // ADC levels (@ ADC_INTERNAL)
 #define ACS714_MVA 185.0f       // mv/A
 
 #define BMP085_ADDRESS 0x77     // I2C address
@@ -93,9 +92,11 @@ const float BAT_RK = (BAT_R1 + BAT_R2) / BAT_R2;
 
 // Allegro ACS715 0A to 30A     (using 2.56V ADC ref)
 //const float ACS715_CONV = ADC_INTERNAL_MV / ACS715_MVA;         // Amps per ADC level
+//const int ACS715_OFFSET = 202;                                  // ADC level (0.5 Vin @ 2.52 Vref ~= 202.2)
 
 // Allegro ACS715 0A to 30A     (using 5.00V ADC ref)
 const float ACS715_CONV = ADC_DEFAULT_MV / ACS715_MVA;          // Amps per ADC level
+const int ACS715_OFFSET = 103;                                  // ADC level (0.5 Vin @ 5 Vref = 102.6)
 
 // Allegro ACS714 current sensor
 //const int ACS_ZERO = (int) 2500 / ADC_INTERNAL_MV;            // ADC reading for 2.5V (~ 1007)
@@ -373,7 +374,7 @@ void loop() {
         digitalWrite(LED_PIN, LOW);
 
         // calculate output is Amps
-        acs0 = (float) (raw_acs0 - ACS715_OFF)  * ACS715_CONV;
+        acs0 = (float) (raw_acs0 - ACS715_OFFSET)  * ACS715_CONV;
         //acs0 = (float) (ACS_ZERO - raw_acs0) * ACS714_CONV;
 
         // send current report
