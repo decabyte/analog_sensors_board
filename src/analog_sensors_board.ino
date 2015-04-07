@@ -74,6 +74,10 @@
 #define ADC_DEFAULT_V 0.004887f     // uncalibrated
 #define ADC_DEFAULT_MV 4.887f       // uncalibrated
 
+// select the ADC reference to use for calculations
+#define ADC_V ADC_DEFAULT_V
+#define ADC_MV ADC_DEFAULT_MV
+
 #define LED_PIN 13
 
 #define BAT_R1 24000.0f         // R1 (ohm)
@@ -390,9 +394,6 @@ void loop() {
 
     // limit data rate
     if(delta >= DELAY_SLOW) {
-        // switch to precise reference (2.56V)
-        analogReference(INTERNAL);
-
         // analog inputs (battery)
         raw_bat0 = analogRead(A0);      // J4 (pin 1)
         raw_bat0 = analogRead(A0);      // J4 (pin 1)
@@ -407,10 +408,10 @@ void loop() {
         raw_bat3 = analogRead(A3);      // J4 (pin 4)
 
         // voltage level conversion
-        bat0 = BAT_RK * (float)raw_bat0 * ADC_INTERNAL_V;
-        bat1 = BAT_RK * (float)raw_bat1 * ADC_INTERNAL_V;
-        bat2 = BAT_RK * (float)raw_bat2 * ADC_INTERNAL_V;
-        bat3 = BAT_RK * (float)raw_bat3 * ADC_INTERNAL_V;
+        bat0 = BAT_RK * (float)raw_bat0 * ADC_V;
+        bat1 = BAT_RK * (float)raw_bat1 * ADC_V;
+        bat2 = BAT_RK * (float)raw_bat2 * ADC_V;
+        bat3 = BAT_RK * (float)raw_bat3 * ADC_V;
 
         // send battery report
         report_battery();
@@ -430,10 +431,10 @@ void loop() {
         //raw_tm3 = analogRead(A11);        // J5 (pin 2)
 
         // lm35 temperature conversion
-        tm0 = (float(raw_tm0) * ADC_INTERNAL_MV) / LM35_MVC;
-        tm1 = (float(raw_tm1) * ADC_INTERNAL_MV) / LM35_MVC;
-        tm2 = (float(raw_tm2) * ADC_INTERNAL_MV) / LM35_MVC;
-        //tm3 = (float(raw_tm3) * ADC_INTERNAL_MV) / LM35_MVC;
+        tm0 = (float(raw_tm0) * ADC_MV) / LM35_MVC;
+        tm1 = (float(raw_tm1) * ADC_MV) / LM35_MVC;
+        tm2 = (float(raw_tm2) * ADC_MV) / LM35_MVC;
+        //tm3 = (float(raw_tm3) * ADC_MV) / LM35_MVC;
 
         // send temperature report
         report_temperature();
@@ -458,7 +459,8 @@ void loop() {
         // relative humidity with temperature correction (see hih_4030_fitting.m)
         hm = (0.0002f * temperature) + 0.0763f;         // x-coeffient fitting
         hb = (-0.0612f * temperature) - 24.4265f;       // b-term fitting
-        hih = hm * float(raw_hih) + hb;
+        hih = hm * float(raw_hih + 524) + hb;           // ADC ref (5.0 V)  this is scaling back the ADC reading
+        // hih = hm * float(raw_hih) + hb;              // ADC ref (2.56 V)
 
         // send humidity report
         report_humidity();
@@ -468,13 +470,6 @@ void loop() {
         report_indicators();
 
         
-        // switch to default reference (5V on Arduino Uno/Leonardo)
-        analogReference(DEFAULT);
-
-        // discard the first ADC conversion
-        analogRead(A11);
-
-
         // send timestamp
         Serial.print("$TIME,");
         Serial.println(time_env, DEC);
