@@ -89,8 +89,11 @@
 // Voltage Divider (for battery levels)
 const float BAT_RK = (BAT_R1 + BAT_R2) / BAT_R2;
 
-// Allegro ACS715 0A to 30A
-const float ACS715_CONV = ADC_INTERNAL_MV / ACS715_MVA;         // Amps per ADC level
+// Allegro ACS715 0A to 30A     (using 2.56V ADC ref)
+//const float ACS715_CONV = ADC_INTERNAL_MV / ACS715_MVA;         // Amps per ADC level
+
+// Allegro ACS715 0A to 30A     (using 5.00V ADC ref)
+const float ACS715_CONV = ADC_DEFAULT_MV / ACS715_MVA;          // Amps per ADC level
 
 // Allegro ACS714 current sensor
 //const int ACS_ZERO = (int) 2500 / ADC_INTERNAL_MV;            // ADC reading for 2.5V (~ 1007)
@@ -185,7 +188,10 @@ void setup() {
     // }
 
     // switch to precise reference (2.56V)
-    analogReference(INTERNAL);
+    //analogReference(INTERNAL);
+
+    // switch to default reference (5V on Arduino Uno/Leonardo)
+    analogReference(DEFAULT);
 
     // Arduino Leonardo has some difficulties entering in bootloarder upload mode
     // if it is sending data to serial in loop() preventing firmware update without
@@ -381,6 +387,9 @@ void loop() {
 
     // limit data rate
     if(delta >= DELAY_SLOW) {
+        // switch to precise reference (2.56V)
+        analogReference(INTERNAL);
+
         // analog inputs (battery)
         raw_bat0 = analogRead(A0);      // J4 (pin 1)
         raw_bat0 = analogRead(A0);      // J4 (pin 1)
@@ -454,6 +463,13 @@ void loop() {
 
         // send indicators report
         report_indicators();
+
+        
+        // switch to default reference (5V on Arduino Uno/Leonardo)
+        analogReference(DEFAULT);
+
+        // discard the first ADC conversion
+        analogRead(A11);
 
 
         // send timestamp
