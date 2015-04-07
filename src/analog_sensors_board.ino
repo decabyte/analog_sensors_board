@@ -50,6 +50,8 @@
 #define DELAY_SLOW 5000         // slow acquisition loop
 #define DELAY_FAST 250          // fast acquisition loop
 
+#define INIT_COUNT 10           // initial loop count (reset protection)    
+
 // Nessie LEDs and Water Sensors
 #define LED_GREEN 6
 #define LED_YELLOW 5
@@ -201,7 +203,7 @@ void setup() {
     // a software-triggered reset to upload a new firmware using serial bootloader
 
     // reset protection delay (DO NOT REMOVE)
-    for(int i=0; i<5; i++) {
+    for(int i=0; i < INIT_COUNT; i++) {
         // initial LEDs flashing
         digitalWrite(LED_GREEN, HIGH); 
         digitalWrite(LED_YELLOW, HIGH); 
